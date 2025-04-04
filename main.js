@@ -21,6 +21,7 @@ const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
 const chefRoutes = require('./routes/chef.routes');
 const productRoutes = require('./routes/product.routes');
+const twofactorRoutes = require('./routes/twofactor.routes');
 
 // Middleware
 app.use(express.json());
@@ -54,6 +55,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/chefs', chefRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/auth/2fa', twofactorRoutes);
 
 // API status route
 app.get('/api/status', (req, res) => {

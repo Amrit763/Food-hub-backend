@@ -85,3 +85,24 @@ exports.chefApplicationValidation = [
         .withMessage('Bio is required')
         .trim()
 ];
+
+// Add these to your existing validation.js file
+
+// 2FA validation
+exports.twoFactorVerifyValidation = [
+    check('token', 'Verification code must be 6 digits').isLength({ min: 6, max: 6 }).isNumeric()
+];
+
+exports.twoFactorValidateValidation = [
+    check('email', 'Valid email is required').isEmail().normalizeEmail(),
+    check('token', 'Token must be 6 digits').optional().isLength({ min: 6, max: 6 }).isNumeric(),
+    check('backupCode', 'Backup code must be 8 characters').optional().isLength({ min: 8, max: 8 })
+];
+
+exports.twoFactorDisableValidation = [
+    check('password', 'Password is required').exists()
+];
+
+exports.twoFactorBackupCodesValidation = [
+    check('password', 'Password is required').exists()
+];

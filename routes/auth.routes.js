@@ -59,4 +59,13 @@ router.post(
     authController.changePassword
 );
 
+// @route   GET /api/auth/test-token
+// @desc    Test token validation
+// @access  Private
+router.get(
+    '/test-token',
+    authenticate,
+    authController.testToken
+);
+
 module.exports = router;

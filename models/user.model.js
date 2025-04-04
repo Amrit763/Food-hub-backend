@@ -49,7 +49,27 @@ const userSchema = new Schema({
     resetPasswordExpires: {
         type: Date,
         default: null
-    }
+    },
+    // 2FA Fields
+    twoFactorEnabled: {
+        type: Boolean,
+        default: false
+    },
+    twoFactorSecret: {
+        type: String,
+        default: null
+    },
+    twoFactorTempSecret: {
+        type: String,
+        default: null
+    },
+    twoFactorBackupCodes: [{
+        code: String,
+        used: {
+            type: Boolean,
+            default: false
+        }
+    }]
 }, {
     timestamps: true
 });
