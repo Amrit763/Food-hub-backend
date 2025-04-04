@@ -8,8 +8,8 @@ const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const mongoSanitize = require('express-mongo-sanitize');
 const xss = require('xss-clean');
-
-// Import config
+const session = require('express-session');
+const passport = require('./middleware/passport');
 const config = require('./config');
 
 // Connect to MongoDB
@@ -22,16 +22,38 @@ const userRoutes = require('./routes/user.routes');
 const chefRoutes = require('./routes/chef.routes');
 const productRoutes = require('./routes/product.routes');
 const twofactorRoutes = require('./routes/twofactor.routes');
+const googleAuthRoutes = require('./routes/google-auth.routes');
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(morgan('dev'));
-app.use(cors());
 
-// Set security HTTP headers
+// CORS configuration - adjust for your frontend
+app.use(cors({
+    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    credentials: true
+}));
+
+// Security HTTP headers
 app.use(helmet());
+
+// Session configuration for Passport
+app.use(session({
+    secret: config.jwtSecretKey, // Use same secret for simplicity
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: process.env.NODE_ENV === 'production', // Secure in production
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+}));
+
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Rate limiting
 const limiter = rateLimit({
@@ -52,10 +74,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // API routes
 app.use('/api/auth', authRoutes);
+app.use('/api/auth', googleAuthRoutes); // Google auth routes
+app.use('/api/auth/2fa', twofactorRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/chefs', chefRoutes);
 app.use('/api/products', productRoutes);
-app.use('/api/auth/2fa', twofactorRoutes);
 
 // API status route
 app.get('/api/status', (req, res) => {
