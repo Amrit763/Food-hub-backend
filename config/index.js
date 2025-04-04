@@ -3,7 +3,12 @@ require('dotenv').config();
 module.exports = {
     port: process.env.PORT || 9999,
     saltRounds: 10,
+    // Use one consistent name - jwtSecretKey
     jwtSecretKey: process.env.JWT_SECRET || 'your_jwt_secret_key',
+    // Add jwtSecret as an alias to ensure backward compatibility
+    get jwtSecret() {
+        return this.jwtSecretKey;
+    },
     jwtExpiresIn: '7d',
     
     // MongoDB connection

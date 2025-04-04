@@ -8,6 +8,7 @@ const sendEmail = require('../utils/email');
 
 // Generate JWT token
 const generateToken = (id) => {
+    console.log('Generating token with secret key:', config.jwtSecretKey.substring(0, 5) + '...');
     return jwt.sign({ id }, config.jwtSecretKey, {
         expiresIn: config.jwtExpiresIn
     });
@@ -103,6 +104,18 @@ exports.login = async (req, res) => {
             });
         }
 
+        // Check if 2FA is enabled
+        if (user.twoFactorEnabled) {
+            // If 2FA is enabled, return a response indicating 2FA is required
+            return res.json({
+                success: true,
+                requiresTwoFactor: true,
+                email: user.email,  // Send back email for the second step, but don't send a token yet
+                message: 'Please enter your 2FA code to complete login'
+            });
+        }
+
+        // If 2FA is not enabled, continue with normal login flow
         // Generate token
         const token = generateToken(user._id);
 
@@ -324,4 +337,15 @@ exports.changePassword = async (req, res) => {
             message: 'Server error during password change'
         });
     }
+};
+
+// @route   GET /api/auth/test-token
+// @desc    Test token validation
+// @access  Private
+exports.testToken = (req, res) => {
+    res.json({
+        success: true,
+        message: 'Token is valid',
+        user: req.user
+    });
 };

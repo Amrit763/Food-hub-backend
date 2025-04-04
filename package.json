@@ -31,6 +31,8 @@
         "ngx-pagination": "^5.0.0",
         "nodemailer": "^6.4.16",
         "nodemon": "^2.0.15",
+        "qrcode": "^1.5.4",
+        "speakeasy": "^2.0.0",
         "xss-clean": "^0.1.4"
     }
 }
