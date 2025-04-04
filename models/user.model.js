@@ -18,7 +18,10 @@ const userSchema = new Schema({
     },
     password: {
         type: String,
-        required: true,
+        // Not required for social logins
+        required: function() {
+            return !this.googleId; // Only required if not using Google auth
+        },
         minlength: 6
     },
     role: {
@@ -50,7 +53,7 @@ const userSchema = new Schema({
         type: Date,
         default: null
     },
-    // 2FA Fields
+    // Two-Factor Authentication Fields
     twoFactorEnabled: {
         type: Boolean,
         default: false
@@ -69,15 +72,25 @@ const userSchema = new Schema({
             type: Boolean,
             default: false
         }
-    }]
+    }],
+    // Google Authentication Fields
+    googleId: {
+        type: String,
+        default: null
+    },
+    googleProfile: {
+        type: Object,
+        default: null
+    }
 }, {
     timestamps: true
 });
 
 // Pre-save hook to hash password
 userSchema.pre('save', async function(next) {
-    // Only hash the password if it's modified (or new)
-    if (!this.isModified('password')) return next();
+    // Only hash the password if it's modified (or new) and exists
+    // Skip for social logins that don't have a password
+    if (!this.isModified('password') || !this.password) return next();
     
     try {
         // Generate a salt
@@ -92,6 +105,8 @@ userSchema.pre('save', async function(next) {
 
 // Method to compare password for login
 userSchema.methods.comparePassword = async function(candidatePassword) {
+    // If user doesn't have a password (social login), return false
+    if (!this.password) return false;
     return await bcrypt.compare(candidatePassword, this.password);
 };
 
