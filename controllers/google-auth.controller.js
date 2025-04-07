@@ -12,11 +12,8 @@ exports.googleCallback = (req, res) => {
         // Define your frontend URL where you'll handle the authentication redirect
         const clientRedirectUrl = process.env.CLIENT_URL || 'http://localhost:3000';
         
-        // You have two options:
-        
-        // Option 1: Redirect to your frontend with token in URL parameters
-        // This is simple but less secure - only use in development
-        res.redirect(`${clientRedirectUrl}/auth/google/success?token=${token}`);
+        // Changed the redirect URL to include /api prefix to match your existing routes
+        res.redirect(`/api/auth/google/success?token=${token}`);
         
         // Option 2: Set token in cookies and redirect (more secure)
         // This is better for production
@@ -46,13 +43,42 @@ exports.googleCallback = (req, res) => {
 // @access  Private
 exports.googleSuccess = async (req, res) => {
     try {
-        // User is attached to request by auth middleware
-        const user = await User.findById(req.user._id).select('-password');
+        // Modified to handle token in query parameters
+        const token = req.query.token;
         
-        res.json({
-            success: true,
-            user
-        });
+        if (!token) {
+            return res.status(401).json({
+                success: false,
+                message: 'No token provided'
+            });
+        }
+        
+        // Verify token and get user data
+        const jwt = require('jsonwebtoken');
+        const config = require('../config');
+        
+        try {
+            const decoded = jwt.verify(token, config.jwtSecretKey);
+            const user = await User.findById(decoded.id).select('-password');
+            
+            if (!user) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'User not found'
+                });
+            }
+            
+            res.json({
+                success: true,
+                token,
+                user
+            });
+        } catch (verifyErr) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid token'
+            });
+        }
     } catch (err) {
         console.error('Google success page error:', err);
         res.status(500).json({

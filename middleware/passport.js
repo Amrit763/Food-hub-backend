@@ -4,6 +4,12 @@ const User = require('../models/user.model');
 const googleConfig = require('../config/google-auth');
 const { generateToken } = require('../utils/token');
 
+console.log('====== GOOGLE AUTH CONFIGURATION ======');
+console.log(`Client ID: ${process.env.GOOGLE_CLIENT_ID.substring(0, 10)}...`);
+console.log(`Client Secret: ${process.env.GOOGLE_CLIENT_SECRET ? 'Loaded (not showing for security)' : 'NOT LOADED'}`);
+console.log(`Callback URL: ${process.env.GOOGLE_CALLBACK_URL}`);
+console.log('=======================================');
+
 // Serialize user to session
 passport.serializeUser((user, done) => {
     done(null, user.id);

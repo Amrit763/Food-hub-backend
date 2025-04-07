@@ -33,7 +33,6 @@ router.get(
 // @access  Private
 router.get(
     '/google/success',
-    authenticate,
     googleAuthController.googleSuccess
 );
 
