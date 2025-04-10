@@ -68,6 +68,12 @@ exports.googleSuccess = async (req, res) => {
                 });
             }
             
+            // Ensure Google-authenticated users have verified emails
+            if (!user.isEmailVerified) {
+                user.isEmailVerified = true;
+                await user.save();
+            }
+            
             res.json({
                 success: true,
                 token,
@@ -96,4 +102,4 @@ exports.googleFailure = (req, res) => {
         success: false,
         message: 'Google authentication failed'
     });
-};
+}

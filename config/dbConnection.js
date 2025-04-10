@@ -37,7 +37,7 @@ const createFirstAdminIfNeeded = async () => {
                 email: config.firstAdmin.email,
                 password: config.firstAdmin.password,
                 role: 'admin',
-                isEmailVerified: true
+                isEmailVerified: true // Admin is automatically verified
             });
             
             console.log('First admin user created successfully');

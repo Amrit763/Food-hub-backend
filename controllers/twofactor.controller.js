@@ -9,7 +9,7 @@ const config = require('../config');
 
 // Function to generate JWT token (reusing from auth controller)
 const generateToken = (userId) => {
-    console.log('Generating token with secret key:', config.jwtSecretKey.substring(0, 5) + '...');
+    // console.log('Generating token with secret key:', config.jwtSecretKey.substring(0, 5) + '...');
     return jwt.sign(
         { id: userId },
         config.jwtSecretKey,  // Use the same key as in auth.js

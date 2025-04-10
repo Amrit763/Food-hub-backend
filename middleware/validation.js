@@ -1,5 +1,10 @@
 const { check } = require('express-validator');
 
+// Email validation for resend verification
+exports.emailValidation = [
+    check('email', 'Please include a valid email').isEmail().normalizeEmail()
+];
+
 // User registration validation
 exports.registerValidation = [
     check('fullName', 'Full name is required').not().isEmpty().trim(),
@@ -85,8 +90,6 @@ exports.chefApplicationValidation = [
         .withMessage('Bio is required')
         .trim()
 ];
-
-// Add these to your existing validation.js file
 
 // 2FA validation
 exports.twoFactorVerifyValidation = [
