@@ -239,3 +239,248 @@ The ${appName} Team
         html
     };
 };
+
+/**
+ * Generate password reset email template
+ * 
+ * @param {Object} options
+ * @param {string} options.fullName - User's full name
+ * @param {string} options.resetUrl - URL to reset password
+ * @returns {Object} - Email template with subject, text and HTML
+ */
+exports.passwordReset = (options) => {
+    const { fullName, resetUrl } = options;
+    const appName = config.smtp.fromName || 'Food Hub';
+    
+    // Plain text version
+    const text = `
+Hello ${fullName},
+
+You are receiving this email because you (or someone else) has requested to reset your password.
+
+Please click on the following link or paste it into your browser to complete the process:
+
+${resetUrl}
+
+This link will be valid for only 1 hour.
+
+If you did not request this, please ignore this email and your password will remain unchanged.
+
+Best regards,
+The ${appName} Team
+    `;
+    
+    // HTML version
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        .button {
+            display: inline-block;
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 25px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .alert {
+            padding: 10px;
+            background-color: #fff8e1;
+            border-left: 4px solid #ffc107;
+            margin: 15px 0;
+        }
+        .footer {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #777;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">${appName}</div>
+        </div>
+        
+        <h2>Password Reset Request</h2>
+        
+        <p>Hello ${fullName},</p>
+        
+        <p>You are receiving this email because you (or someone else) has requested to reset your password.</p>
+        
+        <div style="text-align: center;">
+            <a href="${resetUrl}" class="button">Reset Password</a>
+        </div>
+        
+        <p>Or copy and paste this link in your browser:</p>
+        <p><a href="${resetUrl}">${resetUrl}</a></p>
+        
+        <div class="alert">
+            <strong>Note:</strong> This link will be valid for only 1 hour.
+        </div>
+        
+        <p>If you did not request this, please ignore this email and your password will remain unchanged.</p>
+        
+        <p>Best regards,<br>The ${appName} Team</p>
+    </div>
+    <div class="footer">
+        &copy; ${new Date().getFullYear()} ${appName}. All rights reserved.
+    </div>
+</body>
+</html>
+    `;
+    
+    return {
+        subject: `Reset Your Password - ${appName}`,
+        text,
+        html
+    };
+};
+
+/**
+ * Generate password reset success template
+ * 
+ * @param {Object} options
+ * @param {string} options.fullName - User's full name
+ * @param {string} options.loginUrl - URL to login page
+ * @returns {Object} - Email template with subject, text and HTML
+ */
+exports.passwordResetSuccess = (options) => {
+    const { fullName, loginUrl } = options;
+    const appName = config.smtp.fromName || 'Food Hub';
+    
+    // Plain text version
+    const text = `
+Hello ${fullName},
+
+Your password has been successfully reset.
+
+You can now log in to your account using your new password:
+
+${loginUrl}
+
+If you did not make this change, please contact our support team immediately.
+
+Best regards,
+The ${appName} Team
+    `;
+    
+    // HTML version
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        .success-icon {
+            text-align: center;
+            font-size: 48px;
+            color: #4CAF50;
+            margin: 20px 0;
+        }
+        .button {
+            display: inline-block;
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 25px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .footer {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #777;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">${appName}</div>
+        </div>
+        
+        <div class="success-icon">✓</div>
+        
+        <h2>Password Reset Successful!</h2>
+        
+        <p>Hello ${fullName},</p>
+        
+        <p>Your password has been successfully reset.</p>
+        
+        <p>You can now log in to your account using your new password:</p>
+        
+        <div style="text-align: center;">
+            <a href="${loginUrl}" class="button">Log In Now</a>
+        </div>
+        
+        <p>If you did not make this change, please contact our support team immediately.</p>
+        
+        <p>Best regards,<br>The ${appName} Team</p>
+    </div>
+    <div class="footer">
+        &copy; ${new Date().getFullYear()} ${appName}. All rights reserved.
+    </div>
+</body>
+</html>
+    `;
+    
+    return {
+        subject: `Password Reset Successful - ${appName}`,
+        text,
+        html
+    };
+};

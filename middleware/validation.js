@@ -46,6 +46,7 @@ exports.resetPasswordValidation = [
             }
             return true;
         })
+        .optional() // Make confirmPassword optional for API testing in Postman
 ];
 
 // Update user validation
