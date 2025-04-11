@@ -16,7 +16,7 @@ module.exports = {
     mongoURI: process.env.MONGO_URI || 'mongodb://localhost:27017/foodhub',
     
     // Client URL for reset password links
-    clientUrl: process.env.CLIENT_URL || 'http://localhost:3000',
+    clientUrl: process.env.CLIENT_URL || 'http://localhost:4200',
     
     // Email configuration
     email: {
@@ -40,7 +40,7 @@ module.exports = {
     firstAdmin: {
         fullName: process.env.FIRST_ADMIN_NAME || 'Admin User',
         email: process.env.FIRST_ADMIN_EMAIL || 'admin@foodhub.com',
-        password: process.env.FIRST_ADMIN_PASSWORD || 'admin123456'
+        password: process.env.FIRST_ADMIN_PASSWORD || 'Admin@123456'
     },
     
     // Log SMTP configuration on startup (without showing the full password)

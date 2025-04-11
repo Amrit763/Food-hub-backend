@@ -239,7 +239,6 @@ The ${appName} Team
         html
     };
 };
-
 /**
  * Generate password reset email template
  * 
@@ -252,6 +251,13 @@ exports.passwordReset = (options) => {
     const { fullName, resetUrl } = options;
     const appName = config.smtp.fromName || 'Food Hub';
     
+    // Extract the token from the resetUrl
+    const token = resetUrl.split('/').pop();
+    
+    // Create the frontend URL
+    const clientUrl = config.clientUrl || 'http://localhost:4200';
+    const frontendResetUrl = `${clientUrl}/auth/reset-password/${token}`;
+    
     // Plain text version
     const text = `
 Hello ${fullName},
@@ -260,7 +266,7 @@ You are receiving this email because you (or someone else) has requested to rese
 
 Please click on the following link or paste it into your browser to complete the process:
 
-${resetUrl}
+${frontendResetUrl}
 
 This link will be valid for only 1 hour.
 
@@ -303,12 +309,13 @@ The ${appName} Team
         .button {
             display: inline-block;
             background-color: #4CAF50;
-            color: white;
+            color: white !important;
             padding: 12px 25px;
-            text-decoration: none;
+            text-decoration: none !important;
             border-radius: 5px;
             margin: 20px 0;
             font-weight: bold;
+            cursor: pointer;
         }
         .alert {
             padding: 10px;
@@ -337,11 +344,11 @@ The ${appName} Team
         <p>You are receiving this email because you (or someone else) has requested to reset your password.</p>
         
         <div style="text-align: center;">
-            <a href="${resetUrl}" class="button">Reset Password</a>
+            <a href="${frontendResetUrl}" class="button" style="color: white !important; text-decoration: none !important; background-color: #4CAF50; display: inline-block; padding: 12px 25px; border-radius: 5px; font-weight: bold;">Reset Password</a>
         </div>
         
         <p>Or copy and paste this link in your browser:</p>
-        <p><a href="${resetUrl}">${resetUrl}</a></p>
+        <p><a href="${frontendResetUrl}">${frontendResetUrl}</a></p>
         
         <div class="alert">
             <strong>Note:</strong> This link will be valid for only 1 hour.
@@ -364,7 +371,6 @@ The ${appName} Team
         html
     };
 };
-
 /**
  * Generate password reset success template
  * 

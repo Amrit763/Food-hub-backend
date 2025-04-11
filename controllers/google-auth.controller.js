@@ -4,37 +4,29 @@ const User = require('../models/user.model');
 // @route   GET /api/auth/google/callback
 // @desc    Handle Google OAuth callback
 // @access  Public
+// @route   GET /api/auth/google/callback
+// @desc    Handle Google OAuth callback
+// @access  Public
+// @route   GET /api/auth/google/callback
+// @desc    Handle Google OAuth callback
+// @access  Public
 exports.googleCallback = (req, res) => {
     try {
         // User is already authenticated at this point by Passport
         const token = generateToken(req.user._id);
         
-        // Define your frontend URL where you'll handle the authentication redirect
-        const clientRedirectUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+        // Define your frontend URL - make sure this is the complete URL with protocol
+        const clientRedirectUrl = process.env.CLIENT_URL || 'http://localhost:4200';
         
-        // Changed the redirect URL to include /api prefix to match your existing routes
-        res.redirect(`/api/auth/google/success?token=${token}`);
-        
-        // Option 2: Set token in cookies and redirect (more secure)
-        // This is better for production
-        /*
-        // Set HTTP-only cookie with the token
-        res.cookie('auth_token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production', // Use secure in production
-            sameSite: 'Lax',
-            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days, match your JWT expiry
-        });
-        
-        // Redirect to the frontend
-        res.redirect(`${clientRedirectUrl}/auth/google/success`);
-        */
+        // Redirect to the frontend with the complete URL
+        // res.redirect(`${clientRedirectUrl}/auth/google-callback?token=${token}`);
+        res.redirect(`http://localhost:4200/auth/google-callback?token=${token}`);
     } catch (err) {
         console.error('Google callback error:', err);
         
         // Redirect to frontend error page
-        const clientRedirectUrl = process.env.CLIENT_URL || 'http://localhost:3000';
-        res.redirect(`${clientRedirectUrl}/auth/google/error`);
+        const clientRedirectUrl = process.env.CLIENT_URL || 'http://localhost:4200';
+        res.redirect(`${clientRedirectUrl}/auth/login?error=google_auth_failed`);
     }
 };
 

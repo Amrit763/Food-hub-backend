@@ -7,6 +7,8 @@ const crypto = require('crypto');
 const sendEmail = require('../utils/email');
 const emailTemplates = require('../utils/email-templates');
 
+
+
 // Generate JWT token
 const generateToken = (id) => {
     console.log('Generating token with secret key:', config.jwtSecretKey.substring(0, 5) + '...');
@@ -386,30 +388,26 @@ exports.forgotPassword = async (req, res) => {
         }
 
         // Generate reset token
-        const resetToken = crypto.randomBytes(20).toString('hex');
+        const resetToken = user.generatePasswordResetToken();
         console.log(`Generated reset token: ${resetToken.substring(0, 5)}...`);
-
-        // Hash token and set to resetPasswordToken field
-        user.resetPasswordToken = crypto
-            .createHash('sha256')
-            .update(resetToken)
-            .digest('hex');
-
-        // Set expiry (1 hour)
-        user.resetPasswordExpires = Date.now() + 3600000;
 
         await user.save();
         console.log(`Saved reset token for user: ${email}`);
 
-        // Create reset URL that points to the backend for testing
-        const resetUrl = `${req.protocol}://${req.get('host')}/api/auth/reset-password/${resetToken}`;
-        console.log(`Reset URL: ${resetUrl}`);
+        // HARD-CODE the URL directly to the frontend
+        // Don't create a backend API URL at all
+        const hardcodedFrontendUrl = `http://localhost:4200/auth/reset-password/${resetToken}`;
+        console.log(`Hard-coded Frontend URL: ${hardcodedFrontendUrl}`);
 
-        // Get email template
+        // Get email template with the HARDCODED frontend URL directly
         const emailTemplate = emailTemplates.passwordReset({
             fullName: user.fullName,
-            resetUrl
+            resetUrl: hardcodedFrontendUrl // Pass the frontend URL directly
         });
+
+        // Log the URLs in the email template to verify
+        console.log("Email template text URL:", emailTemplate.text.includes(hardcodedFrontendUrl));
+        console.log("Email template HTML URL:", emailTemplate.html.includes(hardcodedFrontendUrl));
 
         // Send email
         try {
@@ -448,7 +446,6 @@ exports.forgotPassword = async (req, res) => {
         });
     }
 };
-
 // @route   POST /api/auth/reset-password/:token
 // @desc    Reset password
 // @access  Public

@@ -31,10 +31,15 @@ app.use(cookieParser());
 app.use(morgan('dev'));
 
 // CORS configuration - adjust for your frontend
+// app.use(cors({
+//     origin: process.env.CLIENT_URL || 'http://localhost:3000',
+//     credentials: true
+// }));
+
 app.use(cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    origin: 'http://localhost:4200', // Angular dev server URL
     credentials: true
-}));
+  }));
 
 // Security HTTP headers
 app.use(helmet());

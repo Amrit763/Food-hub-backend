@@ -9,7 +9,12 @@ exports.emailValidation = [
 exports.registerValidation = [
     check('fullName', 'Full name is required').not().isEmpty().trim(),
     check('email', 'Please include a valid email').isEmail().normalizeEmail(),
-    check('password', 'Password must be at least 6 characters').isLength({ min: 6 }),
+    check('password')
+    .isLength({ min: 8 })
+    .withMessage('Password must be at least 8 characters long')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/)
+    .withMessage('Password must include uppercase, lowercase, number, and special character'),
+
     check('confirmPassword')
         .custom((value, { req }) => {
             if (value !== req.body.password) {

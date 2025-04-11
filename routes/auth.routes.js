@@ -68,90 +68,90 @@ router.get(
     (req, res) => {
         const token = req.params.token;
         // Send an HTML form for testing
-        res.send(`
-            <html>
-                <head>
-                    <title>Reset Password</title>
-                    <style>
-                        body { font-family: Arial; max-width: 500px; margin: 20px auto; padding: 20px; }
-                        .form-group { margin-bottom: 15px; }
-                        label { display: block; margin-bottom: 5px; }
-                        input { width: 100%; padding: 8px; }
-                        button { padding: 10px 15px; background: #4CAF50; color: white; border: none; cursor: pointer; }
-                        .message { padding: 10px; margin: 10px 0; border-radius: 4px; display: none; }
-                        .error { background-color: #f8d7da; color: #721c24; }
-                        .success { background-color: #d4edda; color: #155724; }
-                    </style>
-                </head>
-                <body>
-                    <h2>Reset Your Password</h2>
-                    <div id="message" class="message"></div>
-                    <form id="resetForm">
-                        <div class="form-group">
-                            <label for="password">New Password</label>
-                            <input type="password" id="password" required minlength="6">
-                        </div>
-                        <div class="form-group">
-                            <label for="confirmPassword">Confirm Password</label>
-                            <input type="password" id="confirmPassword" required minlength="6">
-                        </div>
-                        <button type="submit">Reset Password</button>
-                    </form>
+        // res.send(`
+        //     <html>
+        //         <head>
+        //             <title>Reset Password</title>
+        //             <style>
+        //                 body { font-family: Arial; max-width: 500px; margin: 20px auto; padding: 20px; }
+        //                 .form-group { margin-bottom: 15px; }
+        //                 label { display: block; margin-bottom: 5px; }
+        //                 input { width: 100%; padding: 8px; }
+        //                 button { padding: 10px 15px; background: #4CAF50; color: white; border: none; cursor: pointer; }
+        //                 .message { padding: 10px; margin: 10px 0; border-radius: 4px; display: none; }
+        //                 .error { background-color: #f8d7da; color: #721c24; }
+        //                 .success { background-color: #d4edda; color: #155724; }
+        //             </style>
+        //         </head>
+        //         <body>
+        //             <h2>Reset Your Password</h2>
+        //             <div id="message" class="message"></div>
+        //             <form id="resetForm">
+        //                 <div class="form-group">
+        //                     <label for="password">New Password</label>
+        //                     <input type="password" id="password" required minlength="6">
+        //                 </div>
+        //                 <div class="form-group">
+        //                     <label for="confirmPassword">Confirm Password</label>
+        //                     <input type="password" id="confirmPassword" required minlength="6">
+        //                 </div>
+        //                 <button type="submit">Reset Password</button>
+        //             </form>
 
-                    <script>
-                        document.getElementById('resetForm').addEventListener('submit', async function(e) {
-                            e.preventDefault();
+        //             <script>
+        //                 document.getElementById('resetForm').addEventListener('submit', async function(e) {
+        //                     e.preventDefault();
                             
-                            const password = document.getElementById('password').value;
-                            const confirmPassword = document.getElementById('confirmPassword').value;
-                            const messageEl = document.getElementById('message');
+        //                     const password = document.getElementById('password').value;
+        //                     const confirmPassword = document.getElementById('confirmPassword').value;
+        //                     const messageEl = document.getElementById('message');
                             
-                            if (password !== confirmPassword) {
-                                messageEl.textContent = 'Passwords do not match';
-                                messageEl.className = 'message error';
-                                messageEl.style.display = 'block';
-                                return;
-                            }
+        //                     if (password !== confirmPassword) {
+        //                         messageEl.textContent = 'Passwords do not match';
+        //                         messageEl.className = 'message error';
+        //                         messageEl.style.display = 'block';
+        //                         return;
+        //                     }
                             
-                            try {
-                                const response = await fetch('/api/auth/reset-password/${token}', {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                    },
-                                    body: JSON.stringify({
-                                        password,
-                                        confirmPassword
-                                    }),
-                                });
+        //                     try {
+        //                         const response = await fetch('/api/auth/reset-password/${token}', {
+        //                             method: 'POST',
+        //                             headers: {
+        //                                 'Content-Type': 'application/json',
+        //                             },
+        //                             body: JSON.stringify({
+        //                                 password,
+        //                                 confirmPassword
+        //                             }),
+        //                         });
                                 
-                                const data = await response.json();
+        //                         const data = await response.json();
                                 
-                                if (response.ok) {
-                                    messageEl.textContent = data.message || 'Password reset successful';
-                                    messageEl.className = 'message success';
+        //                         if (response.ok) {
+        //                             messageEl.textContent = data.message || 'Password reset successful';
+        //                             messageEl.className = 'message success';
                                     
-                                    // Redirect to login after 3 seconds
-                                    setTimeout(() => {
-                                        window.location.href = '/login';
-                                    }, 3000);
-                                } else {
-                                    messageEl.textContent = data.message || 'Error resetting password';
-                                    messageEl.className = 'message error';
-                                }
+        //                             // Redirect to login after 3 seconds
+        //                             setTimeout(() => {
+        //                                 window.location.href = '/login';
+        //                             }, 3000);
+        //                         } else {
+        //                             messageEl.textContent = data.message || 'Error resetting password';
+        //                             messageEl.className = 'message error';
+        //                         }
                                 
-                                messageEl.style.display = 'block';
-                            } catch (error) {
-                                messageEl.textContent = 'An error occurred';
-                                messageEl.className = 'message error';
-                                messageEl.style.display = 'block';
-                                console.error('Error:', error);
-                            }
-                        });
-                    </script>
-                </body>
-            </html>
-        `);
+        //                         messageEl.style.display = 'block';
+        //                     } catch (error) {
+        //                         messageEl.textContent = 'An error occurred';
+        //                         messageEl.className = 'message error';
+        //                         messageEl.style.display = 'block';
+        //                         console.error('Error:', error);
+        //                     }
+        //                 });
+        //             </script>
+        //         </body>
+        //     </html>
+        // `);
     }
 );
 
