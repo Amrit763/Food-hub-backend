@@ -23,6 +23,10 @@ const chefRoutes = require('./routes/chef.routes');
 const productRoutes = require('./routes/product.routes');
 const twofactorRoutes = require('./routes/twofactor.routes');
 const googleAuthRoutes = require('./routes/google-auth.routes');
+const cartRoutes = require('./routes/cart.routes');
+const orderRoutes = require('./routes/orders.routes');
+
+
 
 // Middleware
 app.use(express.json());
@@ -35,6 +39,8 @@ app.use(morgan('dev'));
 //     origin: process.env.CLIENT_URL || 'http://localhost:3000',
 //     credentials: true
 // }));
+
+const defaultProfilePath = path.join(__dirname, 'uploads/profiles/default-profile.png');
 
 app.use(cors({
     origin: 'http://localhost:4200', // Angular dev server URL
@@ -74,8 +80,20 @@ app.use(mongoSanitize());
 // Data sanitization against XSS
 app.use(xss());
 
-// Serve static files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// In main.js, replace your current CORS setup with:
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', 'http://localhost:4200');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  });
+  
+  // For images specifically, add this before your static files middleware
+  app.use('/uploads', (req, res, next) => {
+    res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  }, express.static(path.join(__dirname, 'uploads')));
 
 // API routes
 app.use('/api/auth', authRoutes);
@@ -84,6 +102,8 @@ app.use('/api/auth/2fa', twofactorRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/chefs', chefRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/cart', cartRoutes);
+app.use('/api/orders', orderRoutes); // Orders routes
 
 // API status route
 app.get('/api/status', (req, res) => {

@@ -59,10 +59,22 @@ exports.applyForChef = async (req, res) => {
 // @route   GET /api/chefs/applications
 // @desc    Get all chef applications
 // @access  Private/Admin
+// In chef.controller.js - Update getChefApplications
 exports.getChefApplications = async (req, res) => {
     try {
-        const applications = await ChefProfile.find({ isApproved: false })
+        // Get all applications, not just unapproved ones
+        const applications = await ChefProfile.find()
             .populate('user', 'fullName email');
+        
+        console.log(`Found ${applications.length} chef applications`);
+        
+        // Debug certificate paths
+        applications.forEach(app => {
+            console.log(`Application ${app._id} has ${app.certificateImages?.length || 0} certificates`);
+            if (app.certificateImages && app.certificateImages.length > 0) {
+                console.log('Certificate paths:', app.certificateImages);
+            }
+        });
         
         res.json({
             success: true,
@@ -126,8 +138,7 @@ exports.approveChefApplication = async (req, res) => {
 };
 
 // @route   DELETE /api/chefs/applications/:id
-// @desc    Reject a chef application
-// @access  Private/Admin
+// In chef.controller.js - Update rejectChefApplication
 exports.rejectChefApplication = async (req, res) => {
     try {
         // Find the application
@@ -140,8 +151,8 @@ exports.rejectChefApplication = async (req, res) => {
             });
         }
         
-        // Delete the application
-        await application.remove();
+        // Use deleteOne instead of remove
+        await ChefProfile.deleteOne({ _id: application._id });
         
         res.json({
             success: true,
@@ -163,7 +174,6 @@ exports.rejectChefApplication = async (req, res) => {
         });
     }
 };
-
 // @route   GET /api/chefs
 // @desc    Get all approved chefs
 // @access  Public

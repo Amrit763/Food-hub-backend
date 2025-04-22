@@ -1,52 +1,25 @@
-const router = require('express').Router();
+const express = require('express');
+const router = express.Router();
+const { check } = require('express-validator');
+const cartController = require('../controllers/cart.controller');
+const { authenticate } = require('../middleware/auth');
 
-const productModel = require('../models/product.model');
-const userModel = require('./../models/user.model');
+// Apply authenticate middleware to each route individually
+router.get('/', authenticate, cartController.getCart);
 
-router.route('/')
-    .get(async(req, res, next) => {
-        let carts = [];
-        req.loggedInUser.cart.forEach((cart) => {
-            let p = productModel.find({ _id: cart });
-            carts.push(p);
-        })
-        const data = await Promise.all(carts);
-        res.json(data);
-    })
+router.post('/', [
+    authenticate,
+    check('productId', 'Product ID is required').notEmpty().isMongoId(),
+    check('quantity', 'Quantity must be a positive number').optional().isInt({ min: 1 })
+], cartController.addToCart);
 
-router.route('/:id')
-    /* Add to cart */
-    .post((req, res, next) => {
-        userModel.findById(req.loggedInUser._id)
-            .exec((err, user) => {
-                if (err)
-                    return next(err);
-                let check = user.cart.find(element => element == req.params.id);
-                if (check == req.params.id)
-                    return next('This room is already added to your cart');
-                user.cart.push(req.params.id);
-                user.save((err, saved) => {
-                    if (err)
-                        return next(err)
-                    res.json(saved);
-                })
-            })
-    })
-    .put((req, res, next) => {
-        userModel.findById(req.loggedInUser._id)
-            .exec((err, user) => {
-                if (err)
-                    return next(err);
-                for (var i = 0; i < user.cart.length; i++) {
-                    if (user.cart[i] == req.params.id)
-                        user.cart.splice(i, 1);
-                }
-                user.save((err, saved) => {
-                    if (err)
-                        return next(err)
-                    res.send(saved);
-                });
-            })
-    })
+router.put('/:id', [
+    authenticate,
+    check('quantity', 'Quantity must be a positive number').isInt({ min: 1 })
+], cartController.updateCartItem);
+
+router.delete('/:id', authenticate, cartController.removeFromCart);
+
+router.delete('/', authenticate, cartController.clearCart);
 
 module.exports = router;

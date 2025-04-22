@@ -65,7 +65,10 @@ const userSchema = new Schema({
         type: Date,
         default: null
     },
-    
+    phoneNumber:{
+        type: Number,
+        default: null
+    },
     // Google OAuth fields
     googleId: {
         type: String,

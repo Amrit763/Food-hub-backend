@@ -54,10 +54,16 @@ exports.resetPasswordValidation = [
         .optional() // Make confirmPassword optional for API testing in Postman
 ];
 
-// Update user validation
+// Update user validation - Make fields optional since we might just be uploading an image
 exports.updateUserValidation = [
-    check('fullName', 'Full name is required if provided').optional().not().isEmpty().trim(),
-    check('phoneNumber', 'Phone number must be valid if provided').optional()
+    check('fullName')
+        .optional()
+        .not().isEmpty().withMessage('Full name cannot be empty if provided')
+        .trim(),
+    
+    check('phoneNumber')
+        .optional()
+        .trim()
 ];
 
 // Chef application validation

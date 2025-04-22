@@ -17,7 +17,11 @@ const profileImageStorage = multer.diskStorage({
         cb(null, uploadPath);
     },
     filename: function (req, file, cb) {
-        cb(null, `user-${req.user._id}-${Date.now()}${path.extname(file.originalname)}`);
+        // Create a unique filename with user ID and timestamp
+        const userId = req.user._id || 'unknown';
+        const fileName = `user-${userId}-${Date.now()}${path.extname(file.originalname)}`;
+        console.log(`Generated filename for profile image: ${fileName}`);
+        cb(null, fileName);
     }
 });
 
@@ -104,6 +108,7 @@ const uploadChefCertificates = multer({
     { name: 'experience', maxCount: 1 },
     { name: 'bio', maxCount: 1 }
 ]);
+
 const uploadChefPortfolio = multer({
     storage: chefPortfolioStorage,
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
@@ -118,21 +123,26 @@ const uploadProductImages = multer({
 
 // Create wrapper middlewares to handle errors
 const handleProfileImageUpload = (req, res, next) => {
+    console.log('Profile image upload middleware called');
+    
     uploadProfileImage(req, res, (err) => {
         if (err instanceof multer.MulterError) {
             // A Multer error occurred (e.g., file too large)
+            console.error('Multer error during profile image upload:', err);
             return res.status(400).json({
                 success: false,
                 message: `Upload error: ${err.message}`
             });
         } else if (err) {
             // An unknown error occurred
+            console.error('Unknown error during profile image upload:', err);
             return res.status(500).json({
                 success: false,
                 message: `Server error during upload: ${err.message}`
             });
         } else if (req.fileValidationError) {
             // File type validation error
+            console.error('File validation error:', req.fileValidationError);
             return res.status(400).json({
                 success: false,
                 message: req.fileValidationError
@@ -141,14 +151,18 @@ const handleProfileImageUpload = (req, res, next) => {
         
         // If file was uploaded, update user's profile image field
         if (req.file) {
-            req.body.profileImage = req.file.path.replace(/\\/g, '/'); // Normalize path for cross-platform
+            console.log('Profile image uploaded successfully:', req.file.path);
+            // Store the normalized path in the request body
+            req.body.profileImage = req.file.path.replace(/\\/g, '/');
+            console.log('profileImage field in req.body set to:', req.body.profileImage);
+        } else {
+            console.log('No profile image file in request');
         }
         
         next();
     });
 };
 
-// In middleware/file-upload.js
 const handleChefCertificatesUpload = (req, res, next) => {
     uploadChefCertificates(req, res, (err) => {
         if (err instanceof multer.MulterError) {
@@ -168,21 +182,24 @@ const handleChefCertificatesUpload = (req, res, next) => {
             });
         }
         
-        // Store all form fields
+        // Store form fields
         req.formFields = {
             specialization: req.body.specialization,
             experience: req.body.experience,
             bio: req.body.bio
         };
         
-        // Add file paths to formFields as well
+        // Add file paths to formFields AND req.body
         if (req.files && req.files.certificateImages) {
-            req.formFields.certificateImages = req.files.certificateImages.map(file => 
+            const certificateImagePaths = req.files.certificateImages.map(file => 
                 file.path.replace(/\\/g, '/')
             );
+            
+            req.formFields.certificateImages = certificateImagePaths;
+            req.body.certificateImages = certificateImagePaths;
+            
+            console.log('Certificate images saved to req.body:', req.body.certificateImages);
         }
-        
-        console.log('Preserved form fields with files:', req.formFields);
         
         next();
     });
@@ -212,6 +229,7 @@ const handleChefPortfolioUpload = (req, res, next) => {
             req.body.portfolioImages = req.files.map(file => 
                 file.path.replace(/\\/g, '/')
             );
+            console.log('Portfolio images saved to req.body:', req.body.portfolioImages);
         }
         
         next();
@@ -242,6 +260,7 @@ const handleProductImagesUpload = (req, res, next) => {
             req.body.images = req.files.map(file => 
                 file.path.replace(/\\/g, '/')
             );
+            console.log('Product images saved to req.body:', req.body.images);
         }
         
         next();

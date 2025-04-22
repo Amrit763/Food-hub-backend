@@ -1,5 +1,7 @@
 const User = require('../models/user.model');
 const { validationResult } = require('express-validator');
+const fs = require('fs');
+const path = require('path');
 
 // @route   GET /api/users
 // @desc    Get all users (admin only)
@@ -70,16 +72,57 @@ exports.updateUser = async (req, res) => {
     }
 
     try {
+        console.log('Update user request:', {
+            userId: req.params.id,
+            body: req.body,
+            file: req.file ? {
+                filename: req.file.filename,
+                path: req.file.path
+            } : 'No file uploaded'
+        });
+
+        // Find user first to get current state
+        const user = await User.findById(req.params.id);
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
         // Build update object
         const updateFields = {};
         
         if (req.body.fullName) updateFields.fullName = req.body.fullName;
         if (req.body.phoneNumber) updateFields.phoneNumber = req.body.phoneNumber;
         
+        // Handle profile image
+        if (req.file) {
+            updateFields.profileImage = req.file.path.replace(/\\/g, '/');
+            
+            // Remove old profile image if it exists
+            if (user.profileImage) {
+                const oldImagePath = path.join(__dirname, '..', user.profileImage);
+                try {
+                    // Check if file exists before attempting to delete
+                    if (fs.existsSync(oldImagePath)) {
+                        fs.unlinkSync(oldImagePath);
+                        console.log(`Deleted old profile image: ${oldImagePath}`);
+                    }
+                } catch (err) {
+                    console.error(`Error deleting old profile image: ${err.message}`);
+                    // Continue with update even if image deletion fails
+                }
+            }
+        }
+        
         // Only admins can update user roles
         if (req.user.role === 'admin' && req.body.role) {
             updateFields.role = req.body.role;
         }
+        
+        console.log('Updating user with fields:', updateFields);
         
         // Find and update the user
         const updatedUser = await User.findByIdAndUpdate(
@@ -88,19 +131,14 @@ exports.updateUser = async (req, res) => {
             { new: true, runValidators: true }
         ).select('-password');
         
-        if (!updatedUser) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-        
         res.json({
             success: true,
-            user: updatedUser
+            user: updatedUser,
+            message: 'User profile updated successfully'
         });
     } catch (err) {
         console.error('Update user error:', err.message);
+        console.error(err.stack);
         
         if (err.kind === 'ObjectId') {
             return res.status(404).json({
@@ -143,8 +181,21 @@ exports.deleteUser = async (req, res) => {
             }
         }
         
-        // Delete the user
-        await user.remove();
+        // Delete user's profile image if exists
+        if (user.profileImage) {
+            const imagePath = path.join(__dirname, '..', user.profileImage);
+            try {
+                if (fs.existsSync(imagePath)) {
+                    fs.unlinkSync(imagePath);
+                }
+            } catch (err) {
+                console.error(`Error deleting profile image: ${err.message}`);
+                // Continue with deletion even if image deletion fails
+            }
+        }
+        
+        // Use deleteOne instead of remove (deprecated)
+        await User.deleteOne({ _id: user._id });
         
         res.json({
             success: true,
