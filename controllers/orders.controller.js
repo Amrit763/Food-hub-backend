@@ -482,9 +482,8 @@ function updateOverallOrderStatus(order) {
     }
 }
 
-// @route   PATCH /api/orders/:id/cancel
-// @desc    Cancel an order (user only)
-// @access  Private
+// Replace the cancelOrder method in orders.controller.js with this modified version
+
 exports.cancelOrder = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id)
@@ -512,15 +511,44 @@ exports.cancelOrder = async (req, res) => {
             });
         }
 
-        // Check if user is the order owner
-        if (order.user._id.toString() !== req.user._id.toString()) {
+        // Check authorization
+        const isOrderOwner = order.user._id.toString() === req.user._id.toString();
+        const isAdmin = req.user.role === 'admin';
+        let isChefWithItems = false;
+        
+        if (req.user.role === 'chef') {
+            const chefId = req.user._id.toString();
+            isChefWithItems = order.chefItems.some(item => 
+                item.chef._id.toString() === chefId
+            );
+        }
+        
+        if (!isOrderOwner && !isAdmin && !isChefWithItems) {
             return res.status(403).json({
                 success: false,
-                message: 'Not authorized to cancel this order'
+                message: 'Not authorized to modify this order'
             });
         }
 
-        // Check if order can be cancelled (only pending orders can be cancelled)
+        // Check if we're getting a "delete" action in the request body
+        const isDelete = req.body.action === 'delete';
+        
+        // If it's a delete request or the order is already delivered/cancelled, mark as deleted
+        if (isDelete || order.status === 'delivered' || order.status === 'cancelled') {
+            // Add a "deleted" flag to the order
+            order.deleted = true;
+            order.deletedAt = new Date();
+            
+            await order.save();
+            
+            return res.json({
+                success: true,
+                message: 'Order removed from view',
+                order
+            });
+        }
+
+        // Otherwise, if it's a normal cancel and order is active, check it can be cancelled
         if (order.status !== 'pending') {
             return res.status(400).json({
                 success: false,
@@ -552,7 +580,89 @@ exports.cancelOrder = async (req, res) => {
             order
         });
     } catch (err) {
-        console.error('Cancel order error:', err.message);
+        console.error('Cancel/delete order error:', err.message);
+        
+        if (err.kind === 'ObjectId') {
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found'
+            });
+        }
+        
+        res.status(500).json({
+            success: false,
+            message: 'Server error'
+        });
+    }
+};
+
+
+// @route   DELETE /api/orders/:id
+// @desc    Delete an order
+// @access  Private
+// @route   DELETE /api/orders/:id
+// @desc    Delete an order permanently
+// @access  Private
+exports.deleteOrder = async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.id);
+
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found'
+            });
+        }
+
+        // Check authorization (admin or order owner or chef with items in the order)
+        if (req.user.role !== 'admin' && 
+            order.user.toString() !== req.user._id.toString()) {
+            
+            // If user is a chef, check if they have items in this order
+            if (req.user.role === 'chef') {
+                const chefId = req.user._id.toString();
+                const hasChefItems = order.chefItems.some(item => 
+                    item.chef.toString() === chefId
+                );
+
+                if (!hasChefItems) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Not authorized to delete this order'
+                    });
+                }
+            } else {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Not authorized to delete this order'
+                });
+            }
+        }
+
+        // Only allow deletion of delivered or cancelled orders
+        if (order.status !== 'delivered' && order.status !== 'cancelled') {
+            return res.status(400).json({
+                success: false,
+                message: 'Only delivered or cancelled orders can be deleted'
+            });
+        }
+
+        // Use findByIdAndDelete for more reliable deletion
+        const deletedOrder = await Order.findByIdAndDelete(req.params.id);
+        
+        if (!deletedOrder) {
+            return res.status(404).json({
+                success: false,
+                message: 'Failed to delete order'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Order permanently deleted'
+        });
+    } catch (err) {
+        console.error('Delete order error:', err.message);
         
         if (err.kind === 'ObjectId') {
             return res.status(404).json({

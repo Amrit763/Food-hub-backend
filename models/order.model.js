@@ -108,7 +108,15 @@ const OrderSchema = new Schema({
       type: Date,
       default: Date.now
     }
-  }]
+  }],
+  // Added fields for soft delete
+  deleted: {
+    type: Boolean,
+    default: false
+  },
+  deletedAt: {
+    type: Date
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Order', OrderSchema);

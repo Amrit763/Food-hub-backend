@@ -69,4 +69,18 @@ router.patch(
   orderController.cancelOrder
 );
 
+// @route   PATCH /api/orders/:id/delete
+// @desc    Soft delete an order
+// @access  Private
+router.patch(
+  '/:id/delete',
+  auth.authenticate,
+  (req, res, next) => {
+    // Add delete action to the request body
+    req.body.action = 'delete';
+    next();
+  },
+  orderController.cancelOrder
+);
+
 module.exports = router;
