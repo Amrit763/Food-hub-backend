@@ -1,6 +1,24 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
+// Adding a schema for condiments
+const condimentSchema = new Schema({
+    name: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    price: {
+        type: Number,
+        required: true,
+        min: 0
+    },
+    isDefault: {
+        type: Boolean,
+        default: false
+    }
+});
+
 const productSchema = new Schema({
     chef: {
         type: Schema.Types.ObjectId,
@@ -30,6 +48,7 @@ const productSchema = new Schema({
     images: [String],
     ingredients: [String],
     allergens: [String],
+    condiments: [condimentSchema], // Added condiments array
     preparationTime: {
         type: Number, // in minutes
         default: 30

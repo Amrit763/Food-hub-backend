@@ -5,7 +5,7 @@ const CartItem = require('../models/cart.model');
 const { validationResult } = require('express-validator');
 
 // @route   POST /api/orders
-// @desc    Create a new order from cart
+// @desc    Create a new order
 // @access  Private
 exports.createOrder = async (req, res) => {
     const errors = validationResult(req);
@@ -17,103 +17,124 @@ exports.createOrder = async (req, res) => {
     }
 
     try {
-        const user = req.user._id;
-        const { 
-            deliveryAddress, 
-            deliveryDate, 
-            deliveryTime, 
-            deliveryNotes, 
-            paymentMethod 
-        } = req.body;
-
-        // Get items from user's cart
-        const cartItems = await CartItem.find({ user })
-            .populate({
-                path: 'product',
-                select: 'name price images chef isAvailable'
-            });
-
+        // Get cart items for the user
+        const cartItems = await CartItem.find({ user: req.user._id }).populate('product');
+        
         if (cartItems.length === 0) {
             return res.status(400).json({
                 success: false,
-                message: 'Your cart is empty'
+                message: 'Your cart is empty. Add items before placing an order.'
             });
         }
-
-        // Calculate order totals
-        let subtotal = 0;
-        const orderItems = [];
         
-        // Group items by chef for easier management
-        const chefItemsMap = {};
-
-        for (const item of cartItems) {
-            // Verify product is available
-            if (!item.product.isAvailable) {
-                return res.status(400).json({
-                    success: false,
-                    message: `${item.product.name} is no longer available`
-                });
-            }
-
-            // Calculate item total
-            const itemTotal = item.product.price * item.quantity;
-            subtotal += itemTotal;
-
-            // Create order item
-            const orderItem = {
-                product: item.product._id,
-                quantity: item.quantity,
-                price: item.product.price,
-                subtotal: itemTotal
-            };
-            
-            orderItems.push(orderItem);
-
-            // Group by chef with status tracking
-            const chefId = item.product.chef.toString();
-            if (!chefItemsMap[chefId]) {
-                chefItemsMap[chefId] = {
-                    chef: chefId,
-                    items: [],
-                    status: 'pending',
-                    statusHistory: [{ status: 'pending', timestamp: new Date() }]
-                };
-            }
-            chefItemsMap[chefId].items.push(orderItem);
-        }
-
-        // Convert chef items map to array
-        const chefItems = Object.values(chefItemsMap);
-
-        // Apply service fee (10%)
-        const serviceFee = Math.round(subtotal * 0.1 * 100) / 100;
-        const totalAmount = Math.round((subtotal + serviceFee) * 100) / 100;
-
-        // Create the order
-        const newOrder = new Order({
-            user,
-            items: orderItems,
-            chefItems,
-            totalAmount,
-            subtotal,
-            serviceFee,
+        console.log(`Creating order for user ${req.user._id} with ${cartItems.length} items in cart`);
+        
+        // Extract order data
+        const {
             deliveryAddress,
             deliveryDate,
             deliveryTime,
             deliveryNotes,
+            paymentMethod
+        } = req.body;
+        
+        // Create order items array and organize by chef
+        const orderItems = [];
+        const chefItemsMap = new Map(); // Map to group items by chef
+        let subtotal = 0;
+        
+        for (const cartItem of cartItems) {
+            // Skip unavailable products
+            if (!cartItem.product || !cartItem.product.isAvailable) {
+                console.log(`Skipping unavailable product ${cartItem.product?._id || 'unknown'}`);
+                continue;
+            }
+            
+            // Get the chef ID
+            const chefId = cartItem.product.chef.toString();
+            
+            // Calculate item subtotal with condiments
+            let itemPrice = Number(cartItem.product.price) || 0;
+            
+            // Add condiment prices
+            if (cartItem.selectedCondiments && cartItem.selectedCondiments.length > 0) {
+                for (const condiment of cartItem.selectedCondiments) {
+                    const condimentPrice = Number(condiment.price) || 0;
+                    if (!isNaN(condimentPrice)) {
+                        itemPrice += condimentPrice;
+                    }
+                }
+            }
+            
+            const itemSubtotal = itemPrice * cartItem.quantity;
+            subtotal += itemSubtotal;
+            
+            console.log(`Item: ${cartItem.product.name}, Base price: ${cartItem.product.price}, With condiments: ${itemPrice}, Quantity: ${cartItem.quantity}, Subtotal: ${itemSubtotal}`);
+            
+            // Create order item
+            const orderItem = {
+                product: cartItem.product._id,
+                quantity: cartItem.quantity,
+                price: cartItem.product.price,
+                selectedCondiments: cartItem.selectedCondiments || [],
+                subtotal: itemSubtotal
+            };
+            
+            orderItems.push(orderItem);
+            
+            // Add to chef's items
+            if (!chefItemsMap.has(chefId)) {
+                chefItemsMap.set(chefId, {
+                    chef: chefId,
+                    items: [],
+                    status: 'pending',
+                    statusHistory: [{ status: 'pending' }]
+                });
+            }
+            
+            chefItemsMap.get(chefId).items.push(orderItem);
+        }
+        
+        // Round subtotal to 2 decimal places
+        subtotal = Math.round(subtotal * 100) / 100;
+        console.log(`Order subtotal: ${subtotal}`);
+        
+        // Calculate service fee (10%)
+        const serviceFee = Math.round(subtotal * 0.1 * 100) / 100;
+        console.log(`Service fee: ${serviceFee}`);
+        
+        // Calculate total
+        const totalAmount = Math.round((subtotal + serviceFee) * 100) / 100;
+        console.log(`Order total: ${totalAmount}`);
+        
+        // Convert chef items map to array
+        const chefItems = Array.from(chefItemsMap.values());
+        
+        // Create the order
+        const newOrder = new Order({
+            user: req.user._id,
+            items: orderItems,
+            chefItems,
+            subtotal,
+            serviceFee,
+            totalAmount,
+            deliveryAddress,
+            deliveryDate,
+            deliveryTime,
+            deliveryNotes: deliveryNotes || '',
             paymentMethod,
-            paymentStatus: 'paid', // For demo purposes, set as paid
+            paymentStatus: 'paid', // For now, assume all orders are paid
             status: 'pending',
-            statusHistory: [{ status: 'pending', timestamp: new Date() }]
+            statusHistory: [{ status: 'pending' }]
         });
-
+        
+        // Save the order
         const savedOrder = await newOrder.save();
         
         // Clear the user's cart
-        await CartItem.deleteMany({ user });
-
-        // Return the populated order
+        await CartItem.deleteMany({ user: req.user._id });
+        
+        // Populate chef details
         const populatedOrder = await Order.findById(savedOrder._id)
             .populate({
                 path: 'user',
@@ -121,26 +142,23 @@ exports.createOrder = async (req, res) => {
             })
             .populate({
                 path: 'items.product',
-                select: 'name price images description chef category',
-                populate: {
-                    path: 'chef',
-                    select: 'fullName profileImage'
-                }
+                select: 'name price images description chef category'
             })
             .populate({
                 path: 'chefItems.chef',
-                select: 'fullName profileImage'
+                select: 'fullName email profileImage'
             });
-
+        
         res.status(201).json({
             success: true,
+            message: 'Order placed successfully',
             order: populatedOrder
         });
     } catch (err) {
-        console.error('Create order error:', err.message);
+        console.error('Create order error:', err);
         res.status(500).json({
             success: false,
-            message: 'Server error during order creation'
+            message: 'Server error while creating order'
         });
     }
 };

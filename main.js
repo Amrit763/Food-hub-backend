@@ -25,7 +25,7 @@ const twofactorRoutes = require('./routes/twofactor.routes');
 const googleAuthRoutes = require('./routes/google-auth.routes');
 const cartRoutes = require('./routes/cart.routes');
 const orderRoutes = require('./routes/orders.routes');
-
+const priceCalculatorRoutes = require('./routes/price-calculator.routes');
 
 
 // Middleware
@@ -104,6 +104,7 @@ app.use('/api/chefs', chefRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes); // Orders routes
+app.use('/api', priceCalculatorRoutes); // Price calculator routes
 
 // API status route
 app.get('/api/status', (req, res) => {

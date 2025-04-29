@@ -15,8 +15,14 @@ router.post('/', [
 
 router.put('/:id', [
     authenticate,
-    check('quantity', 'Quantity must be a positive number').isInt({ min: 1 })
+    check('quantity', 'Quantity must be a positive number').optional().isInt({ min: 1 })
 ], cartController.updateCartItem);
+
+// New route for updating just condiments
+router.put('/:id/condiments', [
+    authenticate,
+    check('selectedCondiments', 'Selected condiments must be an array').isArray()
+], cartController.updateCartItemCondiments);
 
 router.delete('/:id', authenticate, cartController.removeFromCart);
 

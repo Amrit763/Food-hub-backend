@@ -25,6 +25,7 @@ exports.createProduct = async (req, res) => {
             images: req.body.images || [],
             ingredients: req.body.ingredients || [],
             allergens: req.body.allergens || [],
+            condiments: req.body.condiments || [], // Add condiments
             preparationTime: req.body.preparationTime,
             servingSize: req.body.servingSize,
             isAvailable: req.body.isAvailable,
@@ -230,6 +231,7 @@ exports.updateProduct = async (req, res) => {
         if (req.body.tags) updateFields.tags = req.body.tags;
         if (req.body.ingredients) updateFields.ingredients = req.body.ingredients;
         if (req.body.allergens) updateFields.allergens = req.body.allergens;
+        if (req.body.condiments) updateFields.condiments = req.body.condiments; // Add condiments updates
         if (req.body.preparationTime) updateFields.preparationTime = req.body.preparationTime;
         if (req.body.servingSize) updateFields.servingSize = req.body.servingSize;
         if (req.body.isAvailable !== undefined) updateFields.isAvailable = req.body.isAvailable;
@@ -266,6 +268,57 @@ exports.updateProduct = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Server error during product update'
+        });
+    }
+};
+
+// @route   PUT /api/products/:id/condiments
+// @desc    Update product condiments
+// @access  Private (Chef owner or Admin)
+exports.updateProductCondiments = async (req, res) => {
+    try {
+        // Find product
+        let product = await Product.findById(req.params.id);
+        
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                message: 'Product not found'
+            });
+        }
+        
+        // Check ownership
+        if (product.chef.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'You can only update your own products'
+            });
+        }
+
+        // Update condiments
+        product = await Product.findByIdAndUpdate(
+            req.params.id,
+            { $set: { condiments: req.body.condiments } },
+            { new: true, runValidators: true }
+        ).populate('chef', 'fullName profileImage');
+        
+        res.json({
+            success: true,
+            product
+        });
+    } catch (err) {
+        console.error('Update product condiments error:', err.message);
+        
+        if (err.kind === 'ObjectId') {
+            return res.status(404).json({
+                success: false,
+                message: 'Product not found'
+            });
+        }
+        
+        res.status(500).json({
+            success: false,
+            message: 'Server error during condiments update'
         });
     }
 };

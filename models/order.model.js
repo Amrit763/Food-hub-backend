@@ -2,6 +2,18 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
+// Schema for selected condiments in order
+const OrderCondimentSchema = new Schema({
+  name: {
+    type: String,
+    required: true
+  },
+  price: {
+    type: Number,
+    required: true
+  }
+});
+
 const OrderItemSchema = new Schema({
   product: {
     type: Schema.Types.ObjectId,
@@ -17,6 +29,7 @@ const OrderItemSchema = new Schema({
     type: Number,
     required: true
   },
+  selectedCondiments: [OrderCondimentSchema], // Add selected condiments
   subtotal: {
     type: Number,
     required: true
