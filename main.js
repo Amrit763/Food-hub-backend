@@ -11,6 +11,8 @@ const xss = require('xss-clean');
 const session = require('express-session');
 const passport = require('./middleware/passport');
 const config = require('./config');
+const http = require('http');
+const { initializeSocket } = require('./socket');
 
 // Connect to MongoDB
 const connectDB = require('./config/dbConnection');
@@ -26,7 +28,8 @@ const googleAuthRoutes = require('./routes/google-auth.routes');
 const cartRoutes = require('./routes/cart.routes');
 const orderRoutes = require('./routes/orders.routes');
 const priceCalculatorRoutes = require('./routes/price-calculator.routes');
-
+const reviewRoutes = require('./routes/review.routes');
+const chatRoutes = require('./routes/chat.routes');
 
 // Middleware
 app.use(express.json());
@@ -45,7 +48,7 @@ const defaultProfilePath = path.join(__dirname, 'uploads/profiles/default-profil
 app.use(cors({
     origin: 'http://localhost:4200', // Angular dev server URL
     credentials: true
-  }));
+}));
 
 // Security HTTP headers
 app.use(helmet());
@@ -87,13 +90,13 @@ app.use((req, res, next) => {
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Cross-Origin-Resource-Policy', 'cross-origin');
     next();
-  });
+});
   
-  // For images specifically, add this before your static files middleware
-  app.use('/uploads', (req, res, next) => {
+// For images specifically, add this before your static files middleware
+app.use('/uploads', (req, res, next) => {
     res.header('Cross-Origin-Resource-Policy', 'cross-origin');
     next();
-  }, express.static(path.join(__dirname, 'uploads')));
+}, express.static(path.join(__dirname, 'uploads')));
 
 // API routes
 app.use('/api/auth', authRoutes);
@@ -105,6 +108,8 @@ app.use('/api/products', productRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes); // Orders routes
 app.use('/api', priceCalculatorRoutes); // Price calculator routes
+app.use('/api/reviews', reviewRoutes); // Reviews routes
+app.use('/api/chats', chatRoutes); // Chat routes
 
 // API status route
 app.get('/api/status', (req, res) => {
@@ -131,9 +136,15 @@ app.use((err, req, res, next) => {
     });
 });
 
+// Create HTTP server
+const server = http.createServer(app);
+
+// Initialize Socket.io
+initializeSocket(server);
+
 // Start server
 const PORT = config.port;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
 

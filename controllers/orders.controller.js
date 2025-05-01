@@ -2,6 +2,7 @@
 const Order = require('../models/order.model');
 const Product = require('../models/product.model');
 const CartItem = require('../models/cart.model');
+const Chat = require('../models/chat.model');
 const { validationResult } = require('express-validator');
 
 // @route   POST /api/orders
@@ -131,6 +132,33 @@ exports.createOrder = async (req, res) => {
         // Save the order
         const savedOrder = await newOrder.save();
         
+        // Create chat channels for each chef in the order
+        const createChatsForOrder = async (orderId, userId, chefIds) => {
+            try {
+                const chatPromises = chefIds.map(chefId => {
+                    return Chat.create({
+                        order: orderId,
+                        customer: userId,
+                        chef: chefId,
+                        messages: []
+                    });
+                });
+                
+                await Promise.all(chatPromises);
+                console.log(`Created ${chefIds.length} chat channels for order ${orderId}`);
+            } catch (error) {
+                console.error('Error creating chat channels:', error);
+                // We don't want to fail the order creation if chat creation fails
+                // Just log the error
+            }
+        };
+        
+        // Get unique chef IDs from the order
+        const chefIds = [...new Set(chefItems.map(item => item.chef.toString()))];
+        
+        // Create chat channels
+        await createChatsForOrder(savedOrder._id, req.user._id, chefIds);
+        
         // Clear the user's cart
         await CartItem.deleteMany({ user: req.user._id });
         
@@ -168,7 +196,7 @@ exports.createOrder = async (req, res) => {
 // @access  Private
 exports.getUserOrders = async (req, res) => {
     try {
-        const orders = await Order.find({ user: req.user._id })
+        const orders = await Order.find({ user: req.user._id, deleted: { $ne: true } })
             .populate({
                 path: 'user',
                 select: 'fullName email profileImage'
@@ -187,10 +215,26 @@ exports.getUserOrders = async (req, res) => {
             })
             .sort('-createdAt');
 
+        // Add a flag to identify if the user can review each item
+        const ordersWithReviewFlag = orders.map(order => {
+            const orderObj = order.toObject();
+            
+            // Can only review items in delivered orders
+            const canReview = order.status === 'delivered';
+            
+            // Add canReview flag to each item
+            orderObj.items = orderObj.items.map(item => ({
+                ...item,
+                canReview
+            }));
+            
+            return orderObj;
+        });
+
         res.json({
             success: true,
             count: orders.length,
-            orders
+            orders: ordersWithReviewFlag
         });
     } catch (err) {
         console.error('Get user orders error:', err.message);
@@ -211,10 +255,14 @@ exports.getChefOrders = async (req, res) => {
         // Status filter if provided
         const statusFilter = req.query.status ? { 'chefItems.status': req.query.status } : {};
         
+        // Exclude deleted orders
+        const deletedFilter = { deleted: { $ne: true } };
+        
         // Find orders that have items with products created by this chef
         const orders = await Order.find({
             'chefItems.chef': chefId,
-            ...statusFilter
+            ...statusFilter,
+            ...deletedFilter
         })
         .populate({
             path: 'user',
@@ -303,9 +351,22 @@ exports.getOrderById = async (req, res) => {
             }
         }
 
+        // Add review flag for each item
+        const orderObj = order.toObject();
+        
+        // Can only review items in delivered orders
+        const canReview = order.status === 'delivered' && 
+                          order.user._id.toString() === req.user._id.toString();
+        
+        // Add canReview flag to each item
+        orderObj.items = orderObj.items.map(item => ({
+            ...item,
+            canReview
+        }));
+
         res.json({
             success: true,
-            order
+            order: orderObj
         });
     } catch (err) {
         console.error('Get order by ID error:', err.message);
@@ -500,8 +561,9 @@ function updateOverallOrderStatus(order) {
     }
 }
 
-// Replace the cancelOrder method in orders.controller.js with this modified version
-
+// @route   PATCH /api/orders/:id/cancel
+// @desc    Cancel an order
+// @access  Private
 exports.cancelOrder = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id)
@@ -614,13 +676,9 @@ exports.cancelOrder = async (req, res) => {
     }
 };
 
-
-// @route   DELETE /api/orders/:id
-// @desc    Delete an order
-// @access  Private
 // @route   DELETE /api/orders/:id
 // @desc    Delete an order permanently
-// @access  Private
+// @access  Private (Admin only)
 exports.deleteOrder = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id);
@@ -632,36 +690,11 @@ exports.deleteOrder = async (req, res) => {
             });
         }
 
-        // Check authorization (admin or order owner or chef with items in the order)
-        if (req.user.role !== 'admin' && 
-            order.user.toString() !== req.user._id.toString()) {
-            
-            // If user is a chef, check if they have items in this order
-            if (req.user.role === 'chef') {
-                const chefId = req.user._id.toString();
-                const hasChefItems = order.chefItems.some(item => 
-                    item.chef.toString() === chefId
-                );
-
-                if (!hasChefItems) {
-                    return res.status(403).json({
-                        success: false,
-                        message: 'Not authorized to delete this order'
-                    });
-                }
-            } else {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Not authorized to delete this order'
-                });
-            }
-        }
-
-        // Only allow deletion of delivered or cancelled orders
-        if (order.status !== 'delivered' && order.status !== 'cancelled') {
-            return res.status(400).json({
+        // Check authorization (admin only for permanent deletion)
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
                 success: false,
-                message: 'Only delivered or cancelled orders can be deleted'
+                message: 'Not authorized to permanently delete this order'
             });
         }
 
@@ -692,6 +725,90 @@ exports.deleteOrder = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Server error'
+        });
+    }
+};
+
+// @route   GET /api/orders/:id/can-review/:productId
+// @desc    Check if a product can be reviewed by current user
+// @access  Private
+exports.canReviewProduct = async (req, res) => {
+    try {
+        const orderId = req.params.id;
+        const productId = req.params.productId;
+        const userId = req.user._id;
+        
+        // Find the order
+        const order = await Order.findById(orderId);
+        
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found'
+            });
+        }
+        
+        // Check if user is the order owner
+        if (order.user.toString() !== userId.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: 'Not authorized to review this order'
+            });
+        }
+        
+        // Check if order is delivered
+        if (order.status !== 'delivered') {
+            return res.json({
+                success: true,
+                canReview: false,
+                reason: 'Order is not delivered yet'
+            });
+        }
+        
+        // Check if the product was part of this order
+        const productInOrder = order.items.some(item => 
+            item.product.toString() === productId
+        );
+        
+        if (!productInOrder) {
+            return res.json({
+                success: true,
+                canReview: false,
+                reason: 'Product was not part of this order'
+            });
+        }
+        
+        // Check if product was already reviewed in this order
+        const alreadyReviewed = order.reviewedItems.some(item => 
+            item.product.toString() === productId
+        );
+        
+        if (alreadyReviewed) {
+            return res.json({
+                success: true,
+                canReview: false,
+                reason: 'Product was already reviewed for this order'
+            });
+        }
+        
+        // All checks passed, user can review this product
+        return res.json({
+            success: true,
+            canReview: true
+        });
+    } catch (err) {
+        console.error('Can review product check error:', err.message);
+        
+        if (err.kind === 'ObjectId') {
+            return res.status(404).json({
+                success: false,
+                message: 'Order or product not found'
+            });
+        }
+        
+        res.status(500).json({
+            success: false,
+            message: 'Server error while checking review eligibility'
         });
     }
 };

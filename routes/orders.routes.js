@@ -51,6 +51,15 @@ router.get(
   orderController.getOrderById
 );
 
+// @route   GET /api/orders/:id/can-review/:productId
+// @desc    Check if a product can be reviewed by current user
+// @access  Private
+router.get(
+  '/:id/can-review/:productId',
+  auth.authenticate,
+  orderController.canReviewProduct
+);
+
 // @route   PATCH /api/orders/:id/status
 // @desc    Update order status
 // @access  Private (Chef or Admin)
@@ -81,6 +90,16 @@ router.patch(
     next();
   },
   orderController.cancelOrder
+);
+
+// @route   DELETE /api/orders/:id
+// @desc    Hard delete an order (admin only)
+// @access  Private/Admin
+router.delete(
+  '/:id',
+  auth.authenticate,
+  auth.isAdmin,
+  orderController.deleteOrder
 );
 
 module.exports = router;

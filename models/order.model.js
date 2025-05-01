@@ -129,7 +129,21 @@ const OrderSchema = new Schema({
   },
   deletedAt: {
     type: Date
-  }
+  },
+  reviewedItems: [{
+    product: {
+        type: Schema.Types.ObjectId,
+        ref: 'Product'
+    },
+    reviewId: {
+        type: Schema.Types.ObjectId,
+        ref: 'Review'
+    },
+    reviewedAt: {
+        type: Date,
+        default: Date.now
+    }
+}]
 }, { timestamps: true });
 
 module.exports = mongoose.model('Order', OrderSchema);

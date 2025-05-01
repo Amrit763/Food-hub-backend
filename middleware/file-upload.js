@@ -76,6 +76,23 @@ const productImageStorage = multer.diskStorage({
     }
 });
 
+// Setup storage for review images
+const reviewImageStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const uploadPath = 'uploads/reviews';
+        
+        // Create directory if it doesn't exist
+        if (!fs.existsSync(uploadPath)) {
+            fs.mkdirSync(uploadPath, { recursive: true });
+        }
+        
+        cb(null, uploadPath);
+    },
+    filename: function (req, file, cb) {
+        cb(null, `review-${req.user._id}-${Date.now()}${path.extname(file.originalname)}`);
+    }
+});
+
 // File filter to accept only images
 const imageFileFilter = (req, file, cb) => {
     // Allow only image files
@@ -120,6 +137,12 @@ const uploadProductImages = multer({
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
     fileFilter: imageFileFilter
 }).array('productImages', 5); // Max 5 product images per food item
+
+const uploadReviewImages = multer({
+    storage: reviewImageStorage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+    fileFilter: imageFileFilter
+}).array('reviewImages', 5); // Max 5 images per review
 
 // Create wrapper middlewares to handle errors
 const handleProfileImageUpload = (req, res, next) => {
@@ -267,9 +290,41 @@ const handleProductImagesUpload = (req, res, next) => {
     });
 };
 
+const handleReviewImagesUpload = (req, res, next) => {
+    uploadReviewImages(req, res, (err) => {
+        if (err instanceof multer.MulterError) {
+            return res.status(400).json({
+                success: false,
+                message: `Upload error: ${err.message}`
+            });
+        } else if (err) {
+            return res.status(500).json({
+                success: false,
+                message: `Server error during upload: ${err.message}`
+            });
+        } else if (req.fileValidationError) {
+            return res.status(400).json({
+                success: false,
+                message: req.fileValidationError
+            });
+        }
+        
+        // If files were uploaded, add paths to request body
+        if (req.files && req.files.length > 0) {
+            req.body.images = req.files.map(file => 
+                file.path.replace(/\\/g, '/')
+            );
+            console.log('Review images saved to req.body:', req.body.images);
+        }
+        
+        next();
+    });
+};
+
 module.exports = {
     handleProfileImageUpload,
     handleChefCertificatesUpload,
     handleChefPortfolioUpload,
-    handleProductImagesUpload
+    handleProductImagesUpload,
+    handleReviewImagesUpload
 };
