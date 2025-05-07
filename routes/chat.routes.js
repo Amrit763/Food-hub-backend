@@ -71,4 +71,13 @@ router.patch(
     chatController.markAsRead
 );
 
+// @route   GET /api/chats/:id/messages
+// @desc    Get all messages for a specific chat
+// @access  Private
+router.get(
+    '/:id/messages',
+    authenticate,
+    chatController.getChatMessages
+  );
+
 module.exports = router;

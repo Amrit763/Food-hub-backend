@@ -500,3 +500,78 @@ exports.markAsRead = async (req, res) => {
         });
     }
 };
+
+// controllers/chat.controller.js
+// Add this new method to your chat controller:
+
+// @route   GET /api/chats/:id/messages
+// @desc    Get all messages for a specific chat
+// @access  Private
+exports.getChatMessages = async (req, res) => {
+    try {
+      const chatId = req.params.id;
+      const userId = req.user._id;
+  
+      // Find the chat
+      const chat = await Chat.findById(chatId)
+        .populate({
+          path: 'messages.sender',
+          select: 'fullName profileImage role'
+        });
+  
+      if (!chat) {
+        return res.status(404).json({
+          success: false,
+          message: 'Chat not found'
+        });
+      }
+  
+      // Check authorization - user must be either the customer or chef
+      if (chat.customer.toString() !== userId.toString() && 
+          chat.chef.toString() !== userId.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Not authorized to access this chat'
+        });
+      }
+  
+      // Check if chat was deleted by this user
+      if (chat.deletedBy.some(id => id.toString() === userId.toString())) {
+        return res.status(404).json({
+          success: false,
+          message: 'Chat has been deleted'
+        });
+      }
+  
+      // Filter out messages that were deleted by this user
+      const messages = chat.messages.filter(msg => 
+        !msg.deletedBy.some(id => id.toString() === userId.toString())
+      );
+  
+      // Mark all messages as read by this user
+      await Chat.updateMany(
+        { _id: chatId, 'messages.sender': { $ne: userId }, 'messages.readBy': { $ne: userId } },
+        { $addToSet: { 'messages.$[elem].readBy': userId } },
+        { arrayFilters: [{ 'elem.sender': { $ne: userId }, 'elem.readBy': { $ne: userId } }] }
+      );
+  
+      res.json({
+        success: true,
+        messages
+      });
+    } catch (err) {
+      console.error('Get chat messages error:', err.message);
+      
+      if (err.kind === 'ObjectId') {
+        return res.status(404).json({
+          success: false,
+          message: 'Chat not found'
+        });
+      }
+      
+      res.status(500).json({
+        success: false,
+        message: 'Server error'
+      });
+    }
+  };
