@@ -1,7 +1,7 @@
 const User = require('../models/user.model');
 const { validationResult } = require('express-validator');
-const fs = require('fs');
 const path = require('path');
+const { deleteFile } = require('../utils/file-utils');
 
 // @route   GET /api/users
 // @desc    Get all users (admin only)
@@ -103,17 +103,8 @@ exports.updateUser = async (req, res) => {
             
             // Remove old profile image if it exists
             if (user.profileImage) {
-                const oldImagePath = path.join(__dirname, '..', user.profileImage);
-                try {
-                    // Check if file exists before attempting to delete
-                    if (fs.existsSync(oldImagePath)) {
-                        fs.unlinkSync(oldImagePath);
-                        console.log(`Deleted old profile image: ${oldImagePath}`);
-                    }
-                } catch (err) {
-                    console.error(`Error deleting old profile image: ${err.message}`);
-                    // Continue with update even if image deletion fails
-                }
+                console.log('Deleting old profile image:', user.profileImage);
+                deleteFile(user.profileImage);
             }
         }
         
@@ -183,15 +174,8 @@ exports.deleteUser = async (req, res) => {
         
         // Delete user's profile image if exists
         if (user.profileImage) {
-            const imagePath = path.join(__dirname, '..', user.profileImage);
-            try {
-                if (fs.existsSync(imagePath)) {
-                    fs.unlinkSync(imagePath);
-                }
-            } catch (err) {
-                console.error(`Error deleting profile image: ${err.message}`);
-                // Continue with deletion even if image deletion fails
-            }
+            console.log('Deleting profile image:', user.profileImage);
+            deleteFile(user.profileImage);
         }
         
         // Use deleteOne instead of remove (deprecated)

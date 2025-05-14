@@ -22,7 +22,8 @@ exports.applyForChef = async (req, res) => {
         if (existingProfile) {
             return res.status(400).json({
                 success: false,
-                message: 'Chef application already exists'
+                message: 'Chef application already exists',
+                details: 'You have already applied to become a chef. Please contact our support team for assistance with your application.'
             });
         }
         
@@ -277,6 +278,42 @@ exports.updateChefProfile = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Server error during profile update'
+        });
+    }
+};
+
+// @route   GET /api/chefs/profile/check
+// @desc    Check if user has an existing chef application
+// @access  Private (authenticated users)
+exports.checkUserApplication = async (req, res) => {
+    try {
+        // Check if user has a chef profile (either approved or pending)
+        const chefProfile = await ChefProfile.findOne({ user: req.user._id });
+        
+        if (!chefProfile) {
+            return res.status(404).json({
+                success: false,
+                message: 'No chef application found for this user'
+            });
+        }
+        
+        // Return profile with status
+        res.json({
+            success: true,
+            exists: true,
+            isApproved: chefProfile.isApproved,
+            profile: {
+                specialization: chefProfile.specialization,
+                experience: chefProfile.experience,
+                bio: chefProfile.bio,
+                createdAt: chefProfile.createdAt
+            }
+        });
+    } catch (err) {
+        console.error('Check chef application error:', err.message);
+        res.status(500).json({
+            success: false,
+            message: 'Server error checking chef application status'
         });
     }
 };

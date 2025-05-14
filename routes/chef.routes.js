@@ -11,6 +11,16 @@ const {
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/certificates/' });
 
+// NEW ROUTE: Check application status
+// @route   GET /api/chefs/profile/check
+// @desc    Check if user has an existing chef application
+// @access  Private (authenticated users)
+router.get(
+    '/profile/check',
+    authenticate,
+    chefController.checkUserApplication
+);
+
 // @route   POST /api/chefs/apply
 // @desc    Apply to become a chef
 // @access  Private (authenticated users)
@@ -85,25 +95,6 @@ router.put(
     handleChefPortfolioUpload,
     chefController.updateChefProfile
 );
-// Add this to your chef.routes.js file
-router.post(
-    '/test-upload',
-    authenticate,
-    (req, res, next) => {
-        console.log('Before multer:', req.body);
-        next();
-    },
-    multer().any(), // Process all fields
-    (req, res) => {
-        console.log('After multer:', req.body);
-        res.json({
-            success: true,
-            receivedData: req.body,
-            receivedFiles: req.files
-        });
-    }
-);
-
 
 // Add this to your chef.routes.js file
 router.post(

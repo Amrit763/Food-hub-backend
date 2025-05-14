@@ -1,9 +1,12 @@
 const Product = require('../models/product.model');
 const { validationResult } = require('express-validator');
+const { deleteFile } = require('../utils/file-utils');
 
-// @route   POST /api/products
-// @desc    Create a new product
-// @access  Private (Chef only)
+/**
+ * @route   POST /api/products
+ * @desc    Create a new product
+ * @access  Private (Chef only)
+ */
 exports.createProduct = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -14,32 +17,20 @@ exports.createProduct = async (req, res) => {
     }
 
     try {
-        // Create new product
         const newProduct = new Product({
-            chef: req.user._id,
-            name: req.body.name,
-            description: req.body.description,
-            price: req.body.price,
-            category: req.body.category,
-            tags: req.body.tags || [],
-            images: req.body.images || [],
-            ingredients: req.body.ingredients || [],
-            allergens: req.body.allergens || [],
-            condiments: req.body.condiments || [], // Add condiments
-            preparationTime: req.body.preparationTime,
-            servingSize: req.body.servingSize,
-            isAvailable: req.body.isAvailable,
-            isVegetarian: req.body.isVegetarian,
-            isVegan: req.body.isVegan,
-            isGlutenFree: req.body.isGlutenFree
+            ...req.body,
+            chef: req.user._id
         });
 
-        // Save product
-        const product = await newProduct.save();
+        // Images are already processed by the handleProductImagesUpload middleware
+        // which adds the image paths to req.body.images
 
+        await newProduct.save();
+        
         res.status(201).json({
             success: true,
-            product
+            product: newProduct,
+            message: 'Product created successfully'
         });
     } catch (err) {
         console.error('Create product error:', err.message);
@@ -50,117 +41,169 @@ exports.createProduct = async (req, res) => {
     }
 };
 
-// @route   GET /api/products
-// @desc    Get all products
-// @access  Public
+/**
+ * @route   GET /api/products
+ * @desc    Get all products
+ * @access  Public
+ */
 exports.getAllProducts = async (req, res) => {
     try {
-        // Build query based on filters
-        const queryObj = { isAvailable: true };
-        
-        // Category filter
-        if (req.query.category) {
-            queryObj.category = req.query.category;
+        // Extract query parameters for filtering
+        const { 
+            page = 1, 
+            limit = 10,
+            category,
+            minPrice,
+            maxPrice,
+            vegetarian,
+            vegan,
+            glutenFree,
+            sort = 'createdAt'
+        } = req.query;
+
+        // Build filter query
+        const filterQuery = {
+            isAvailable: true // Only show available products by default
+        };
+
+        if (category) filterQuery.category = category;
+        if (minPrice) filterQuery.price = { $gte: parseFloat(minPrice) };
+        if (maxPrice) {
+            filterQuery.price = filterQuery.price 
+                ? { ...filterQuery.price, $lte: parseFloat(maxPrice) }
+                : { $lte: parseFloat(maxPrice) };
         }
-        
-        // Chef filter
-        if (req.query.chef) {
-            queryObj.chef = req.query.chef;
+        if (vegetarian === 'true') filterQuery.isVegetarian = true;
+        if (vegan === 'true') filterQuery.isVegan = true;
+        if (glutenFree === 'true') filterQuery.isGlutenFree = true;
+
+        // Set up pagination
+        const pageNum = parseInt(page);
+        const limitNum = parseInt(limit);
+        const skip = (pageNum - 1) * limitNum;
+
+        // Set up sorting
+        const sortOptions = {};
+        if (sort === 'price') {
+            sortOptions.price = 1; // Ascending price
+        } else if (sort === 'price_desc') {
+            sortOptions.price = -1; // Descending price
+        } else if (sort === 'rating') {
+            sortOptions.rating = -1; // Highest rating first
+        } else {
+            sortOptions.createdAt = -1; // Newest first (default)
         }
-        
-        // Price range filter
-        if (req.query.minPrice || req.query.maxPrice) {
-            queryObj.price = {};
-            if (req.query.minPrice) queryObj.price.$gte = req.query.minPrice;
-            if (req.query.maxPrice) queryObj.price.$lte = req.query.maxPrice;
-        }
-        
-        // Dietary filters
-        if (req.query.vegetarian === 'true') queryObj.isVegetarian = true;
-        if (req.query.vegan === 'true') queryObj.isVegan = true;
-        if (req.query.glutenFree === 'true') queryObj.isGlutenFree = true;
-        
-        // Sort options
-        const sortBy = req.query.sort || '-createdAt'; // Default sort by newest
-        
-        // Pagination
-        const page = parseInt(req.query.page, 10) || 1;
-        const limit = parseInt(req.query.limit, 10) || 10;
-        const skip = (page - 1) * limit;
-        
-        // Execute query
-        const products = await Product.find(queryObj)
-            .populate('chef', 'fullName profileImage')
-            .sort(sortBy)
+
+        // Execute query with pagination
+        const products = await Product.find(filterQuery)
+            .populate('chef', 'name profileImage')
+            .sort(sortOptions)
             .skip(skip)
-            .limit(limit);
-            
-        // Get total count
-        const total = await Product.countDocuments(queryObj);
-        
+            .limit(limitNum);
+
+        // Get total count for pagination
+        const totalProducts = await Product.countDocuments(filterQuery);
+
         res.json({
             success: true,
-            count: products.length,
-            total,
-            totalPages: Math.ceil(total / limit),
-            currentPage: page,
-            products
+            products,
+            currentPage: pageNum,
+            totalPages: Math.ceil(totalProducts / limitNum),
+            totalProducts
         });
     } catch (err) {
         console.error('Get all products error:', err.message);
         res.status(500).json({
             success: false,
-            message: 'Server error while fetching products'
+            message: 'Server error'
         });
     }
 };
 
-// @route   GET /api/products/search
-// @desc    Search products
-// @access  Public
+/**
+ * @route   GET /api/products/search
+ * @desc    Search products
+ * @access  Public
+ */
 exports.searchProducts = async (req, res) => {
     try {
-        const searchQuery = req.query.q;
+        const { q } = req.query;
         
-        if (!searchQuery) {
+        if (!q) {
             return res.status(400).json({
                 success: false,
                 message: 'Search query is required'
             });
         }
         
-        // Text search
-        const products = await Product.find(
-            { 
-                $text: { $search: searchQuery },
-                isAvailable: true
-            },
-            { score: { $meta: 'textScore' } }
-        )
-        .populate('chef', 'fullName profileImage')
-        .sort({ score: { $meta: 'textScore' } });
+        // Create search regex
+        const searchRegex = new RegExp(q, 'i');
+        
+        const products = await Product.find({
+            isAvailable: true,
+            $or: [
+                { name: searchRegex },
+                { description: searchRegex },
+                { category: searchRegex }
+            ]
+        }).populate('chef', 'name profileImage');
         
         res.json({
             success: true,
+            products,
             count: products.length,
-            products
+            query: q
         });
     } catch (err) {
         console.error('Search products error:', err.message);
         res.status(500).json({
             success: false,
-            message: 'Server error during product search'
+            message: 'Server error during search'
         });
     }
 };
 
-// @route   GET /api/products/:id
-// @desc    Get product by ID
-// @access  Public
+/**
+ * @route   GET /api/products/chef/:id
+ * @desc    Get all products by a chef
+ * @access  Public
+ */
+exports.getChefProducts = async (req, res) => {
+    try {
+        const products = await Product.find({ chef: req.params.id })
+            .sort({ createdAt: -1 });
+        
+        res.json({
+            success: true,
+            products,
+            count: products.length
+        });
+    } catch (err) {
+        console.error('Get chef products error:', err.message);
+        
+        if (err.kind === 'ObjectId') {
+            return res.status(404).json({
+                success: false,
+                message: 'Chef not found'
+            });
+        }
+        
+        res.status(500).json({
+            success: false,
+            message: 'Server error'
+        });
+    }
+};
+
+/**
+ * @route   GET /api/products/:id
+ * @desc    Get product by ID
+ * @access  Public
+ */
 exports.getProductById = async (req, res) => {
     try {
         const product = await Product.findById(req.params.id)
-            .populate('chef', 'fullName profileImage');
+            .populate('chef', 'name profileImage biography');
         
         if (!product) {
             return res.status(404).json({
@@ -174,7 +217,7 @@ exports.getProductById = async (req, res) => {
             product
         });
     } catch (err) {
-        console.error('Get product by ID error:', err.message);
+        console.error('Get product by id error:', err.message);
         
         if (err.kind === 'ObjectId') {
             return res.status(404).json({
@@ -190,9 +233,11 @@ exports.getProductById = async (req, res) => {
     }
 };
 
-// @route   PUT /api/products/:id
-// @desc    Update a product
-// @access  Private (Chef owner or Admin)
+/**
+ * @route   PUT /api/products/:id
+ * @desc    Update a product
+ * @access  Private (Chef owner or Admin)
+ */
 exports.updateProduct = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -203,7 +248,6 @@ exports.updateProduct = async (req, res) => {
     }
 
     try {
-        // Find product
         let product = await Product.findById(req.params.id);
         
         if (!product) {
@@ -221,49 +265,32 @@ exports.updateProduct = async (req, res) => {
             });
         }
         
-        // Build update object
-        const updateFields = {};
-        
-        if (req.body.name) updateFields.name = req.body.name;
-        if (req.body.description) updateFields.description = req.body.description;
-        if (req.body.price) updateFields.price = req.body.price;
-        if (req.body.category) updateFields.category = req.body.category;
-        if (req.body.tags) updateFields.tags = req.body.tags;
-        if (req.body.ingredients) updateFields.ingredients = req.body.ingredients;
-        if (req.body.allergens) updateFields.allergens = req.body.allergens;
-        if (req.body.condiments) updateFields.condiments = req.body.condiments; // Add condiments updates
-        if (req.body.preparationTime) updateFields.preparationTime = req.body.preparationTime;
-        if (req.body.servingSize) updateFields.servingSize = req.body.servingSize;
-        if (req.body.isAvailable !== undefined) updateFields.isAvailable = req.body.isAvailable;
-        if (req.body.isVegetarian !== undefined) updateFields.isVegetarian = req.body.isVegetarian;
-        if (req.body.isVegan !== undefined) updateFields.isVegan = req.body.isVegan;
-        if (req.body.isGlutenFree !== undefined) updateFields.isGlutenFree = req.body.isGlutenFree;
-        
-        // If new images uploaded, add them to existing images
+        // If new images were uploaded (processed by middleware), delete old images
         if (req.body.images && req.body.images.length > 0) {
-            updateFields.images = [...product.images, ...req.body.images];
+            // Save the old image paths
+            const oldImages = [...(product.images || [])];
+            
+            // Delete the old images that are being replaced
+            console.log('Deleting old product images:', oldImages);
+            oldImages.forEach(imagePath => {
+                deleteFile(imagePath);
+            });
         }
         
-        // Update product
+        // Update the product in the database
         product = await Product.findByIdAndUpdate(
             req.params.id,
-            { $set: updateFields },
-            { new: true, runValidators: true }
-        ).populate('chef', 'fullName profileImage');
+            { $set: req.body },
+            { new: true }
+        );
         
         res.json({
             success: true,
-            product
+            product,
+            message: 'Product updated successfully'
         });
     } catch (err) {
         console.error('Update product error:', err.message);
-        
-        if (err.kind === 'ObjectId') {
-            return res.status(404).json({
-                success: false,
-                message: 'Product not found'
-            });
-        }
         
         res.status(500).json({
             success: false,
@@ -272,63 +299,13 @@ exports.updateProduct = async (req, res) => {
     }
 };
 
-// @route   PUT /api/products/:id/condiments
-// @desc    Update product condiments
-// @access  Private (Chef owner or Admin)
-exports.updateProductCondiments = async (req, res) => {
-    try {
-        // Find product
-        let product = await Product.findById(req.params.id);
-        
-        if (!product) {
-            return res.status(404).json({
-                success: false,
-                message: 'Product not found'
-            });
-        }
-        
-        // Check ownership
-        if (product.chef.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-            return res.status(403).json({
-                success: false,
-                message: 'You can only update your own products'
-            });
-        }
-
-        // Update condiments
-        product = await Product.findByIdAndUpdate(
-            req.params.id,
-            { $set: { condiments: req.body.condiments } },
-            { new: true, runValidators: true }
-        ).populate('chef', 'fullName profileImage');
-        
-        res.json({
-            success: true,
-            product
-        });
-    } catch (err) {
-        console.error('Update product condiments error:', err.message);
-        
-        if (err.kind === 'ObjectId') {
-            return res.status(404).json({
-                success: false,
-                message: 'Product not found'
-            });
-        }
-        
-        res.status(500).json({
-            success: false,
-            message: 'Server error during condiments update'
-        });
-    }
-};
-
-// @route   DELETE /api/products/:id
-// @desc    Delete a product
-// @access  Private (Chef owner or Admin)
+/**
+ * @route   DELETE /api/products/:id
+ * @desc    Delete a product
+ * @access  Private (Chef owner or Admin)
+ */
 exports.deleteProduct = async (req, res) => {
     try {
-        // Find product
         const product = await Product.findById(req.params.id);
         
         if (!product) {
@@ -346,8 +323,16 @@ exports.deleteProduct = async (req, res) => {
             });
         }
         
-        // Delete product
-        await product.remove();
+        // Delete associated image files before deleting the product
+        if (product.images && product.images.length > 0) {
+            console.log('Deleting product images:', product.images);
+            product.images.forEach(imagePath => {
+                deleteFile(imagePath);
+            });
+        }
+        
+        // Now delete the product from the database
+        await Product.findByIdAndDelete(req.params.id);
         
         res.json({
             success: true,
@@ -356,50 +341,9 @@ exports.deleteProduct = async (req, res) => {
     } catch (err) {
         console.error('Delete product error:', err.message);
         
-        if (err.kind === 'ObjectId') {
-            return res.status(404).json({
-                success: false,
-                message: 'Product not found'
-            });
-        }
-        
         res.status(500).json({
             success: false,
             message: 'Server error during product deletion'
-        });
-    }
-};
-
-// @route   GET /api/products/chef/:id
-// @desc    Get all products by a chef
-// @access  Public
-exports.getChefProducts = async (req, res) => {
-    try {
-        const products = await Product.find({ 
-            chef: req.params.id,
-            isAvailable: true
-        })
-        .populate('chef', 'fullName profileImage')
-        .sort('-createdAt');
-        
-        res.json({
-            success: true,
-            count: products.length,
-            products
-        });
-    } catch (err) {
-        console.error('Get chef products error:', err.message);
-        
-        if (err.kind === 'ObjectId') {
-            return res.status(404).json({
-                success: false,
-                message: 'Chef not found'
-            });
-        }
-        
-        res.status(500).json({
-            success: false,
-            message: 'Server error'
         });
     }
 };
